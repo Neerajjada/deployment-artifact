@@ -1,0 +1,122 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  UIPATHCLI: "& 'C:\\actions-runner\\uipath.cli\\tools\\uipcli.exe'"
+  ORCH_FOLDER: 'Shared/deployment-artifact'
+  FOLDER_NAME:  'deployment-artifact'
+  PACKAGE: "package pack ${{ github.workspace }}\\project.json -o ${{ github.workspace }}\\package  -l en-US --libraryOrchestratorApplicationId ${{secrets.ORCH_OAUTH_CLIENT_ID}} --libraryOrchestratorApplicationSecret '${{secrets.ORCH_CLIENT_SECRET}}' --libraryOrchestratorApplicationScope '${{secrets.ORCH_OAUTH_CLIENT_Scopes}}' --libraryOrchestratorUrl ${{secrets.ORCH_URL}} --libraryOrchestratorTenant ${{secrets.ORCH_TENANT_NAME}} --libraryOrchestratorAccountForApp ${{secrets.ORCH_ACCOUNT_NAME}}"
+  DEPLOY: "package deploy ${{ github.workspace }}\\package ${{secrets.ORCH_URL}} ${{secrets.ORCH_TENANT_NAME}} -I ${{secrets.ORCH_OAUTH_CLIENT_ID}} -S '${{secrets.ORCH_CLIENT_SECRET}}' --applicationScope '${{secrets.ORCH_OAUTH_CLIENT_SCOPES}}' -A ${{secrets.ORCH_ACCOUNT_NAME}}"
+  
+jobs:
+  build-and-deploy-package:
+    runs-on: [self-hosted, windows]
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          ref: 'develop'
+        
+      - name: Read Version
+        id: read_version
+        run: |
+                $version = Get-Content "${{ github.workspace }}\release_versions\version.yml" | Select-String -Pattern "version:" | ForEach-Object { $_ -replace 'version:/s*', '' }
+                Write-Output "Version_current: $version"
+                echo "::set-output name=version::$version"
+        shell: PowerShell
+        
+      - name: Increment Version
+        id: increment_version
+        run: |
+                # Increment the version
+                $current_version = $env:INPUT_VERSION
+                # $version_parts = $current_version -split '\.'
+                # $incremented_version = "{0}.{1}.{2}" -f $version_parts[0], $version_parts[1], ($version_parts[2] + 1)
+                $incremented_version = $current_version -split'\.'
+                $incremented_version[-1] = [int]$incremented_version[-1]+1
+                $incremented_version = $incremented_version -join'.'
+                Write-Output "Incremented Version: $incremented_version"
+                echo "::set-output name=incremented_version::$incremented_version"
+        env:
+          INPUT_VERSION: ${{ steps.read_version.outputs.version }}
+        shell: PowerShell
+
+      - name: Build Package
+        run: |
+                 $incremented_version = $env:INPUT_VERSION
+                 $build_version = $incremented_version -split'\:'
+                 $build_version = $build_version[-1]
+                 Write-Output "Build Version: $build_version"
+                 Invoke-Expression "${{ env.UIPATHCLI }} ${{ env.PACKAGE }} --version $build_version --libraryOrchestratorFolder ${{env.ORCH_FOLDER}}"
+                 ls package
+        env:
+          INPUT_VERSION: ${{ steps.increment_version.outputs.incremented_version }}
+        shell: PowerShell
+        
+      - name: Deploy Package                                                                                                                                                                                        
+        run: |
+                Invoke-Expression "${{ env.UIPATHCLI }} ${{env.DEPLOY}} -o ${{env.ORCH_FOLDER}}" 
+        # continue-on-error: true
+
+      - name: Set up Git
+        # if: ${{ success() }}
+        run: |
+               git config user.email "actions@github.com"
+               git config user.name "GitHub Actions"
+
+      - name: Disable branch protection
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          $headers = @{
+            Authorization = "token $env:GH_TOKEN"
+          }
+          Invoke-RestMethod -Uri "https://github.sdetools.wsib.ca/api/v3/repos/${{ github.repository }}/branches/develop/protection" -Method Delete -Headers $headers
+
+      - name: Update Version in Release-Version in version.yml
+        run: |
+               git stash push -m "Stashing changes in version" version/
+               git checkout develop
+               git pull origin develop
+               git reset HEAD .
+               git restore --source=HEAD --staged -- .
+               git restore --source=HEAD -- .
+               git checkout HEAD -- release_versions/version.yml
+               $incremented_version = $env:INPUT_VERSION
+               (Get-Content "${{ github.workspace }}\release_versions\version.yml") -replace 'version:\s*\d+\.\d+\.\d+', "$incremented_version" | Set-Content "${{ github.workspace }}\release_versions\version.yml"
+               git add "${{ github.workspace }}\release_versions\version.yml"
+               git commit -m "Increment version to $incremented_version"
+               git push origin develop
+
+        env:
+          INPUT_VERSION: ${{ steps.increment_version.outputs.incremented_version }}
+
+      - name: Re-enable branch protection
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          $headers = @{
+            Authorization = "token $env:GH_TOKEN"
+            Accept        = "application/vnd.github.luke-cage-preview+json"
+            "Content-Type" = "application/json"
+          }
+          $body = @{
+            required_status_checks = @{
+              strict   = $true
+              contexts = @()
+            }
+            enforce_admins = $true
+            required_pull_request_reviews = @{
+              dismiss_stale_reviews          = $true
+              required_approving_review_count = 1
+            }
+            restrictions = $null
+          } | ConvertTo-Json
+          Invoke-RestMethod -Uri "https://github.sdetools.wsib.ca/api/v3/repos/${{ github.repository }}/branches/develop/protection" -Method Put -Headers $headers -Body $body
