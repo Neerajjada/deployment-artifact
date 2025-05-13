@@ -15,7 +15,7 @@ env:
   
 jobs:
   build-and-deploy-package:
-    runs-on: [self-hosted, windows]
+    runs-on: [windows-latest]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v2
