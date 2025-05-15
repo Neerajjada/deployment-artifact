@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  UIPATHCLI: "${{ github.workspace }}\\uipathcli\\uipcli.exe"
+  UIPATHCLI: "${{ github.workspace }}\\.uipath-cli\\uipcli.exe"
   ORCH_FOLDER: 'Shared/deployment-artifact'
   FOLDER_NAME:  'deployment-artifact'
   PACKAGE: "package pack ${{ github.workspace }}\\project.json -o ${{ github.workspace }}\\package  -l en-US --libraryOrchestratorApplicationId ${{secrets.ORCH_OAUTH_CLIENT_ID}} --libraryOrchestratorApplicationSecret '${{secrets.ORCH_CLIENT_SECRET}}' --libraryOrchestratorApplicationScope '${{secrets.ORCH_OAUTH_CLIENT_Scopes}}' --libraryOrchestratorUrl ${{secrets.ORCH_URL}} --libraryOrchestratorTenant ${{secrets.ORCH_TENANT_NAME}} --libraryOrchestratorAccountForApp ${{secrets.ORCH_ACCOUNT_NAME}}"
@@ -46,13 +46,7 @@ jobs:
           INPUT_VERSION: ${{ steps.read_version.outputs.version }}
         shell: PowerShell
 
-      - name: Download UiPath CLI
-        run: |
-               Invoke-WebRequest -Uri "https://download.uipath.com/cli/uipcli-latest-win.zip" -OutFile uipcli.zip
-               Expand-Archive -Path uipcli.zip -DestinationPath "${{ github.workspace }}\uipathcli"
-        shell: powershell
-
-
+  
       - name: Build Package
         run: |
                  $incremented_version = $env:INPUT_VERSION
@@ -70,60 +64,4 @@ jobs:
                 Invoke-Expression "${{ env.UIPATHCLI }} ${{env.DEPLOY}} -o ${{env.ORCH_FOLDER}}" 
         # continue-on-error: true
 
-      - name: Set up Git
-        # if: ${{ success() }}
-        run: |
-               git config user.email "actions@github.com"
-               git config user.name "GitHub Actions"
-
-      - name: Disable branch protection
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          $headers = @{
-            Authorization = "token $env:GH_TOKEN"
-          }
-          Invoke-RestMethod -Uri "https://github.sdetools.wsib.ca/api/v3/repos/${{ github.repository }}/branches/develop/protection" -Method Delete -Headers $headers
-
-      - name: Update Version in Release-Version in version.yml
-        run: |
-               git stash push -m "Stashing changes in version" version/
-               git checkout develop
-               git pull origin develop
-               git reset HEAD .
-               git restore --source=HEAD --staged -- .
-               git restore --source=HEAD -- .
-               git checkout HEAD -- release_versions/version.yml
-               $incremented_version = $env:INPUT_VERSION
-               (Get-Content "${{ github.workspace }}\release_versions\version.yml") -replace 'version:\s*\d+\.\d+\.\d+', "$incremented_version" | Set-Content "${{ github.workspace }}\release_versions\version.yml"
-               git add "${{ github.workspace }}\release_versions\version.yml"
-               git commit -m "Increment version to $incremented_version"
-               git push origin develop
-
-        env:
-          INPUT_VERSION: ${{ steps.increment_version.outputs.incremented_version }}
-
-      - name: Re-enable branch protection
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          $headers = @{
-            Authorization = "token $env:GH_TOKEN"
-            Accept        = "application/vnd.github.luke-cage-preview+json"
-            "Content-Type" = "application/json"
-          }
-          $body = @{
-            required_status_checks = @{
-              strict   = $true
-              contexts = @()
-            }
-            enforce_admins = $true
-            required_pull_request_reviews = @{
-              dismiss_stale_reviews          = $true
-              required_approving_review_count = 1
-            }
-            restrictions = $null
-          } | ConvertTo-Json
-          Invoke-RestMethod -Uri "https://github.sdetools.wsib.ca/api/v3/repos/${{ github.repository }}/branches/develop/protection" -Method Put -Headers $headers -Body $body
+     
