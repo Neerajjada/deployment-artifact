@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  UIPATHCLI: "${{ github.workspace }}\\uipathcli\\uipcli.exe"
+  UIPATHCLI: "${{ github.workspace }}\\uipathcli\\ucli.exe"
   ORCH_FOLDER: 'Shared/deployment-artifact'
   FOLDER_NAME:  'deployment-artifact'
   PACKAGE: "package pack ${{ github.workspace }}\\project.json -o ${{ github.workspace }}\\package  -l en-US --libraryOrchestratorApplicationId ${{secrets.ORCH_OAUTH_CLIENT_ID}} --libraryOrchestratorApplicationSecret '${{secrets.ORCH_CLIENT_SECRET}}' --libraryOrchestratorApplicationScope '${{secrets.ORCH_OAUTH_CLIENT_Scopes}}' --libraryOrchestratorUrl ${{secrets.ORCH_URL}} --libraryOrchestratorTenant ${{secrets.ORCH_TENANT_NAME}} --libraryOrchestratorAccountForApp ${{secrets.ORCH_ACCOUNT_NAME}}"
@@ -48,8 +48,7 @@ jobs:
 
       - name: Download UiPath CLI
         run: |
-               Invoke-WebRequest -Uri "https://download.uipath.com/cli/uipcli-latest-win.zip" -OutFile uipcli.zip
-               Expand-Archive -Path uipcli.zip -DestinationPath "${{ github.workspace }}\uipathcli"
+               dotnet tool install --tool-path uipathcli UiPath.CLI
         shell: powershell
 
 
