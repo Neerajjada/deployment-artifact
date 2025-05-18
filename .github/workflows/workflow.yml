@@ -65,13 +65,14 @@ jobs:
         run: |
                & $env:UIPATHCLI package list -A $env:APP_ID -S $env:APP_SECRET --applicationScope $env:SCOPE --orchestratorUrl $env:ORCH_URL --tenant $env:TENANT --accountForApp $env:ACCOUNT
         env:
-          APP_ID: ${{ secrets.UIPATH_APP_ID }}
-          APP_SECRET: ${{ secrets.UIPATH_APP_SECRET }}
-          SCOPE: ${{ secrets.UIPATH_SCOPE }}
-          ORCH_URL: ${{ secrets.UIPATH_URL }}
-          TENANT: ${{ secrets.UIPATH_TENANT }}
-          ACCOUNT: ${{ secrets.UIPATH_ACCOUNT }}
-
+          APP_ID: ${{ secrets.ORCH_OAUTH_CLIENT_ID }}
+          APP_SECRET: ${{ secrets.ORCH_CLIENT_SECRET }}
+          SCOPE: ${{ secrets.ORCH_OAUTH_CLIENT_SCOPES }}
+          ORCH_URL: ${{ secrets.UORCH_URL }}
+          TENANT: ${{ secrets.ORCH_TENANT_NAME }}
+          ACCOUNT: ${{ secrets.ORCH_ACCOUNT_NAME }}
+          # DEPLOY: "package deploy ${{ github.workspace }}\\package ${{secrets.ORCH_URL}} ${{secrets.ORCH_TENANT_NAME}} -I ${{secrets.ORCH_OAUTH_CLIENT_ID}} -S '${{secrets.ORCH_CLIENT_SECRET}}' --applicationScope '${{secrets.ORCH_OAUTH_CLIENT_SCOPES}}' -A ${{secrets.ORCH_ACCOUNT_NAME}}"
+   
 
       - name: Deploy Package                                                                                                                                                                                        
         run: |
