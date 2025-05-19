@@ -1,0 +1,61 @@
+name: Test PAT
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  UIPATHCLI: "${{ github.workspace }}\\.uipath-cli\\uipcli.exe"
+  ORCH_FOLDER: 'Shared/deployment-artifact'
+  FOLDER_NAME:  'deployment-artifact'
+  PACKAGE: "package pack ${{ github.workspace }}\\project.json -o ${{ github.workspace }}\\package -l en-US --token '${{ secrets.UIPATH_PAT }}' --projectOrchestratorUrl ${{ secrets.ORCH_URL }} --projectOrchestratorTenant ${{ secrets.ORCH_TENANT_NAME }} --projectOrchestratorFolder '${{ env.ORCH_FOLDER }}'"
+  DEPLOY: "package deploy ${{ github.workspace }}\\package ${{ secrets.ORCH_URL }} ${{ secrets.ORCH_TENANT_NAME }} --token '${{ secrets.UIPATH_PAT }}' --processName '${{ env.FOLDER_NAME }}' --projectFolder '${{ env.ORCH_FOLDER }}'"
+
+jobs:
+  build-and-deploy-package:
+    runs-on: [windows-latest]
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          ref: 'develop'
+
+      - name: Read Version
+        id: read_version
+        run: |
+          $version = Get-Content "${{ github.workspace }}\release_versions\version.yml" | Select-String -Pattern "version:" | ForEach-Object { $_ -replace 'version:/s*', '' }
+          Write-Output "Version_current: $version"
+          echo "::set-output name=version::$version"
+        shell: PowerShell
+
+      - name: Increment Version
+        id: increment_version
+        run: |
+          $current_version = $env:INPUT_VERSION
+          $incremented_version = $current_version -split'\.'
+          $incremented_version[-1] = [int]$incremented_version[-1]+1
+          $incremented_version = $incremented_version -join'.'
+          Write-Output "Incremented Version: $incremented_version"
+          echo "::set-output name=incremented_version::$incremented_version"
+        env:
+          INPUT_VERSION: ${{ steps.read_version.outputs.version }}
+        shell: PowerShell
+
+      - name: Build Package
+        run: |
+          $incremented_version = $env:INPUT_VERSION
+          $build_version = $incremented_version -split'\:'
+          $build_version = $build_version[-1]
+          Write-Output "Build Version: $build_version"
+          Invoke-Expression "${{ env.UIPATHCLI }} ${{ env.PACKAGE }} --version $build_version"
+          ls package
+        env:
+          INPUT_VERSION: ${{ steps.increment_version.outputs.incremented_version }}
+        shell: PowerShell
+
+      - name: Deploy Package
+        run: |
+          Invoke-Expression "${{ env.UIPATHCLI }} ${{ env.DEPLOY }}"
+        shell: PowerShell
