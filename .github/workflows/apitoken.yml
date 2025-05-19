@@ -9,13 +9,11 @@ on:
 env:
   UIPATHCLI: "${{ github.workspace }}\\.uipath-cli\\uipcli.exe"
   ORCH_FOLDER: 'Shared/deployment-artifact'
-  FOLDER_NAME:  'deployment-artifact'
-  PACKAGE: "package pack ${{ github.workspace }}\\project.json -o ${{ github.workspace }}\\package -l en-US --token '${{ secrets.UIPATH_PAT }}' --projectOrchestratorUrl ${{ secrets.ORCH_URL }} --projectOrchestratorTenant ${{ secrets.ORCH_TENANT_NAME }} --projectOrchestratorFolder '${{ env.ORCH_FOLDER }}'"
-  DEPLOY: "package deploy ${{ github.workspace }}\\package ${{ secrets.ORCH_URL }} ${{ secrets.ORCH_TENANT_NAME }} --token '${{ secrets.UIPATH_PAT }}' --processName '${{ env.FOLDER_NAME }}' --projectFolder '${{ env.ORCH_FOLDER }}'"
+  FOLDER_NAME: 'deployment-artifact'
 
 jobs:
   build-and-deploy-package:
-    runs-on: [windows-latest]
+    runs-on: windows-latest
     steps:
       - name: Check out repository code
         uses: actions/checkout@v2
@@ -45,17 +43,15 @@ jobs:
 
       - name: Build Package
         run: |
-          $incremented_version = $env:INPUT_VERSION
-          $build_version = $incremented_version -split'\:'
-          $build_version = $build_version[-1]
+          $build_version = "${{ steps.increment_version.outputs.incremented_version }}"
           Write-Output "Build Version: $build_version"
-          Invoke-Expression "${{ env.UIPATHCLI }} ${{ env.PACKAGE }} --version $build_version"
+          $cmd = "${{ env.UIPATHCLI }} package pack ${{ github.workspace }}\project.json -o ${{ github.workspace }}\package -l en-US --token '${{ secrets.UIPATH_PAT }}' --projectOrchestratorUrl ${{ secrets.ORCH_URL }} --projectOrchestratorTenant ${{ secrets.ORCH_TENANT_NAME }} --projectOrchestratorFolder '${{ env.ORCH_FOLDER }}' --version $build_version"
+          Invoke-Expression $cmd
           ls package
-        env:
-          INPUT_VERSION: ${{ steps.increment_version.outputs.incremented_version }}
         shell: PowerShell
 
       - name: Deploy Package
         run: |
-          Invoke-Expression "${{ env.UIPATHCLI }} ${{ env.DEPLOY }}"
+          $cmd = "${{ env.UIPATHCLI }} package deploy ${{ github.workspace }}\package ${{ secrets.ORCH_URL }} ${{ secrets.ORCH_TENANT_NAME }} --token '${{ secrets.UIPATH_PAT }}' --processName '${{ env.FOLDER_NAME }}' --projectFolder '${{ env.ORCH_FOLDER }}'"
+          Invoke-Expression $cmd
         shell: PowerShell
