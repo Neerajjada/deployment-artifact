@@ -58,17 +58,17 @@ jobs:
 
 
 
-      - name: Test UiPath Authentication
-        run: |
-               & $env:UIPATHCLI package pack D:\a\deployment-artifact\deployment-artifact\project.json `
-               -o D:\a\deployment-artifact\deployment-artifact\package `
-               -l en-US `
-               --libraryOrchestratorApplicationId $env:APP_ID `
-               --libraryOrchestratorApplicationSecret $env:APP_SECRET `
-               --libraryOrchestratorApplicationScope $env:SCOPE `
-               --libraryOrchestratorUrl $env:ORCH_URL `
-               --libraryOrchestratorTenant $env:TENANT `
-               --libraryOrchestratorAccountForApp $env:ACCOUNT
+      #- name: Test UiPath Authentication
+        #run: |
+              # & $env:UIPATHCLI package pack D:\a\deployment-artifact\deployment-artifact\project.json `
+               #-o D:\a\deployment-artifact\deployment-artifact\package `
+              # -l en-US `
+               #--libraryOrchestratorApplicationId $env:APP_ID `
+               #--libraryOrchestratorApplicationSecret $env:APP_SECRET `
+              # --libraryOrchestratorApplicationScope $env:SCOPE `
+              # --libraryOrchestratorUrl $env:ORCH_URL `
+              # --libraryOrchestratorTenant $env:TENANT `
+              # --libraryOrchestratorAccountForApp $env:ACCOUNT
 
         #env:
           #APP_ID: ${{ secrets.ORCH_OAUTH_CLIENT_ID }}
